@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --space-950: #0f0e17;
+  --space-900: #1a1a2e;
+  --space-600: #2d2b55;
+  --space-300: #8b5cf6;
+  --space-200: #a78bfa;
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  body {
+    @apply bg-space-950 text-gray-100 min-h-screen;
+  }
+}
+
+/* Cosmic background */
+.bg-cosmic {
+  background-color: #0f0e17;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(167, 139, 250, 0.08) 0%, transparent 40%),
+    radial-gradient(ellipse 60% 40% at 0% 0%, rgba(139, 92, 246, 0.06) 0%, transparent 40%);
+}
+
+/* Glassmorphism */
+.glass {
+  @apply bg-space-600/40 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl;
+}
+
+.glass-subtle {
+  @apply bg-space-900/60 backdrop-blur-md border border-white/5 rounded-lg;
+}
+
+/* Cosmic glow */
+.glow-purple {
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.35);
+}
+
+.glow-soft {
+  box-shadow: 0 0 48px rgba(139, 92, 246, 0.12);
+}
+
+/* Smooth focus rings */
+input:focus, textarea:focus, button:focus-visible {
+  @apply outline-none ring-2 ring-space-300/50 ring-offset-2 ring-offset-space-950;
+}
