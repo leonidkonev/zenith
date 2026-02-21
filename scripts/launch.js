@@ -30,6 +30,7 @@ function run(cmd, args, opts = {}) {
 function loadEnvIntoProcess(envPath) {
   if (!fs.existsSync(envPath)) return;
   const content = fs.readFileSync(envPath, 'utf8');
+  for (const line of content.split(/\r?\n/)) {
   for (const line of content.split(/
 ?
 /)) {
