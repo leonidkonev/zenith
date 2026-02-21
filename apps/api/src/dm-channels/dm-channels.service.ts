@@ -20,7 +20,7 @@ export class DmChannelsService {
         },
       },
     });
-    return members.map((m) => m.channel);
+    return members.map((m: (typeof members)[number]) => m.channel);
   }
 
   async getOrCreateDm(userId: string, targetUserId: string) {
@@ -36,7 +36,7 @@ export class DmChannelsService {
         where: { channelId },
         include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
       });
-      if (members.length === 2 && members.some((m) => m.userId === targetUserId)) {
+      if (members.length === 2 && members.some((m: (typeof members)[number]) => m.userId === targetUserId)) {
         return this.prisma.dmChannel.findUnique({
           where: { id: channelId },
           include: {

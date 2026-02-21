@@ -11,7 +11,7 @@ export class SearchService {
     const memberServerIds = await this.prisma.member.findMany({
       where: { userId },
       select: { serverId: true },
-    }).then((m) => m.map((x) => x.serverId));
+    }).then((m: Array<{ serverId: string }>) => m.map((x: { serverId: string }) => x.serverId));
     const serverIds = serverId
       ? (memberServerIds.includes(serverId) ? [serverId] : [])
       : memberServerIds;
@@ -20,7 +20,7 @@ export class SearchService {
       where: {
         deletedAt: null,
         channel: { serverId: { in: serverIds } },
-        content: { contains: q, mode: 'insensitive' },
+        content: { contains: q },
       },
       take: limit,
       orderBy: { createdAt: 'desc' },

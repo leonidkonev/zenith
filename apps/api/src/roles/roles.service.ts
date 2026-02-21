@@ -33,7 +33,7 @@ export class RolesService {
         where: {
           channelId,
           OR: [
-            { roleId: { in: member.roles.map((r) => r.roleId) } },
+            { roleId: { in: member.roles.map((r: (typeof member.roles)[number]) => r.roleId) } },
             { userId },
           ],
         },
