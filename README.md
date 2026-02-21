@@ -23,6 +23,8 @@ The launcher will:
 
 **Open http://localhost:3000** when it's ready!
 
+> `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
+
 > **Note:** On first run, the launcher downloads Node.js (~50MB) which may take a minute. Subsequent runs are instant.
 
 ### Alternative: Manual start
@@ -31,6 +33,8 @@ If you prefer to run manually:
 - **PowerShell:** `.\scripts\zenith-launcher.ps1`
 - **Node.js:** `node scripts/launch.js` or `pnpm launch`
 - **Batch:** `start.bat` (requires Node.js and pnpm installed)
+  - Fast path: `start.bat` now skips install/db setup if dependencies + DB already exist.
+  - Force full setup: `start.bat --fresh`
 
 ### Building a single .exe
 
