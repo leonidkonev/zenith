@@ -58,7 +58,7 @@ export class ServersService {
         },
       },
     });
-    return members.map((m) => m.server);
+    return members.map((m: (typeof members)[number]) => m.server);
   }
 
   async findOne(serverId: string, userId: string) {

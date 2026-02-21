@@ -123,7 +123,7 @@ model Message {
   channelId    String?    @map("channel_id")
   dmChannelId  String?    @map("dm_channel_id")
   authorId     String     @map("author_id")
-  content      String     @db.Text
+  content      String
   type         String     @default("default") // default | reply | thread_starter
   threadId     String?    @map("thread_id")
   replyToId    String?    @map("reply_to_id")
@@ -134,9 +134,10 @@ model Message {
   channel   Channel?   @relation(fields: [channelId], references: [id], onDelete: Cascade)
   dmChannel DmChannel? @relation(fields: [dmChannelId], references: [id], onDelete: Cascade)
   author    User       @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  thread    Thread?   @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  thread    Thread?   @relation("ThreadMessages", fields: [threadId], references: [id], onDelete: SetNull)
   replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies   Message[] @relation("MessageReplies")
+  rootForThreads Thread[] @relation("ThreadRootMessage")
   reactions Reaction[]
   mentions  Mention[]
   attachments MessageAttachment[]
@@ -163,8 +164,8 @@ model Thread {
   createdAt      DateTime @default(now()) @map("created_at")
 
   channel     Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  rootMessage Message  @relation(fields: [rootMessageId], references: [id], onDelete: Cascade)
-  messages    Message[]
+  rootMessage Message  @relation("ThreadRootMessage", fields: [rootMessageId], references: [id], onDelete: Cascade)
+  messages    Message[] @relation("ThreadMessages")
 }
 
 model Reaction {
@@ -237,7 +238,7 @@ model Ban {
   serverId  String   @map("server_id")
   userId    String   @map("user_id")
   bannedById String  @map("banned_by_id")
-  reason    String?  @db.Text
+  reason    String?
   createdAt DateTime @default(now()) @map("created_at")
 
   server  Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
