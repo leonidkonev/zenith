@@ -2,6 +2,9 @@
 title Zenith
 cd /d "%~dp0"
 
+set "FORCE_SETUP=0"
+if /I "%~1"=="--fresh" set "FORCE_SETUP=1"
+
 echo.
 echo  Zenith - One-click start
 echo  ========================
