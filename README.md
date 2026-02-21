@@ -24,6 +24,9 @@ The launcher will:
 **Open http://localhost:3000** when it's ready!
 
 > `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
+> If port `3000` is already in use, Next.js will automatically switch to `3001`/`3002` and print the exact URL in the terminal.
+
+> `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
 
 > **Note:** On first run, the launcher downloads Node.js (~50MB) which may take a minute. Subsequent runs are instant.
 
