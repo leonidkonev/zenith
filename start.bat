@@ -7,6 +7,10 @@ echo  Zenith - One-click start
 echo  ========================
 echo.
 
+set "DATABASE_URL=file:%CD%\apps\api\prisma\data\zenith.db"
+if not exist "apps\api\prisma\data" mkdir "apps\api\prisma\data"
+echo Using DATABASE_URL=%DATABASE_URL%
+
 if not exist "package.json" (
   echo Error: package.json not found. Run this from the ZenithApp folder.
   pause
