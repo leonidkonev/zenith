@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = "Stop"
 $script:RootDir = Split-Path -Parent $PSScriptRoot
-Set-Location $RootDir
+Set-Location $script:RootDir
 
 Write-Host ""
 Write-Host "  ╔═══════════════════════════════════════╗" -ForegroundColor Magenta
@@ -21,8 +21,8 @@ try {
 if (-not $nodeVersion) {
     Write-Host "[1/6] Node.js not found. Downloading portable Node.js..." -ForegroundColor Yellow
     
-    $nodeDir = Join-Path $RootDir "node-portable"
-    $nodeZip = Join-Path $RootDir "node.zip"
+    $nodeDir = Join-Path $script:RootDir "node-portable"
+    $nodeZip = Join-Path $script:RootDir "node.zip"
     $nodeUrl = "https://nodejs.org/dist/v20.11.0/node-v20.11.0-win-x64.zip"
     
     if (-not (Test-Path $nodeDir)) {
@@ -30,8 +30,8 @@ if (-not $nodeVersion) {
         try {
             Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeZip -UseBasicParsing
             Write-Host "  Extracting..." -ForegroundColor Gray
-            Expand-Archive -Path $nodeZip -DestinationPath $RootDir -Force
-            $extracted = Get-ChildItem -Path $RootDir -Filter "node-v*-win-x64" -Directory | Select-Object -First 1
+            Expand-Archive -Path $nodeZip -DestinationPath $script:RootDir -Force
+            $extracted = Get-ChildItem -Path $script:RootDir -Filter "node-v*-win-x64" -Directory | Select-Object -First 1
             if ($extracted) {
                 Move-Item -Path $extracted.FullName -Destination $nodeDir -Force
             }
@@ -47,9 +47,9 @@ if (-not $nodeVersion) {
     
     $nodeExe = Join-Path $nodeDir "node.exe"
     if (Test-Path $nodeExe) {
-        $env:PATH = "$nodeDir;$env:PATH"
+        $env:PATH = $nodeDir + ';' + $env:PATH
         $nodeVersion = & $nodeExe --version
-        Write-Host "  Using Node.js $nodeVersion" -ForegroundColor Green
+        Write-Host ('  Using Node.js {0}' -f $nodeVersion) -ForegroundColor Green
     } else {
         Write-Host "  ERROR: Node.js portable not found at $nodeExe" -ForegroundColor Red
         pause
@@ -75,7 +75,7 @@ if (-not $pnpmVersion) {
 }
 
 # Create data directory for SQLite
-$dataDir = Join-Path $RootDir "data"
+$dataDir = Join-Path $script:RootDir "data"
 if (-not (Test-Path $dataDir)) {
     New-Item -ItemType Directory -Path $dataDir | Out-Null
     Write-Host "[3/6] Created data directory for SQLite database" -ForegroundColor Green
@@ -84,33 +84,35 @@ if (-not (Test-Path $dataDir)) {
 }
 
 # Create uploads directory
-$uploadsDir = Join-Path $RootDir "uploads"
+$uploadsDir = Join-Path $script:RootDir "uploads"
 if (-not (Test-Path $uploadsDir)) {
     New-Item -ItemType Directory -Path $uploadsDir | Out-Null
     Write-Host "  Created uploads directory" -ForegroundColor Green
 }
 
 # Create .env if missing
-$envFile = Join-Path $RootDir ".env"
+$envFile = Join-Path $script:RootDir ".env"
 if (-not (Test-Path $envFile)) {
     Write-Host "[4/6] Creating .env file..." -ForegroundColor Yellow
-    $envExample = Join-Path $RootDir ".env.example"
+    $envExample = Join-Path $script:RootDir ".env.example"
     if (Test-Path $envExample) {
         Copy-Item $envExample $envFile
         Write-Host "  .env created from .env.example" -ForegroundColor Green
     } else {
         # Create minimal .env
-        @"
-DATABASE_URL=file:./data/zenith.db
-JWT_SECRET=zenith-local-secret-change-in-production
-JWT_EXPIRY=7d
-WS_CORS_ORIGIN=http://localhost:3000
-PORT=4000
-UPLOAD_PATH=./uploads
-UPLOAD_BASE_URL=http://localhost:4000/uploads
-NEXT_PUBLIC_API_URL=http://localhost:4000
-NEXT_PUBLIC_WS_URL=http://localhost:4000
-"@ | Out-File -FilePath $envFile -Encoding utf8
+        $defaultEnvLines = @(
+            'DATABASE_URL=file:./data/zenith.db'
+            'JWT_SECRET=zenith-local-secret-change-in-production'
+            'JWT_EXPIRY=7d'
+            'WS_CORS_ORIGIN=http://localhost:3000'
+            'PORT=4000'
+            'UPLOAD_PATH=./uploads'
+            'UPLOAD_BASE_URL=http://localhost:4000/uploads'
+            'NEXT_PUBLIC_API_URL=http://localhost:4000'
+            'NEXT_PUBLIC_WS_URL=http://localhost:4000'
+            ''
+        )
+        [System.IO.File]::WriteAllLines($envFile, $defaultEnvLines, [System.Text.Encoding]::UTF8)
         Write-Host "  .env created with defaults" -ForegroundColor Green
     }
 } else {
