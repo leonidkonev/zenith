@@ -100,19 +100,17 @@ if (-not (Test-Path $envFile)) {
         Write-Host "  .env created from .env.example" -ForegroundColor Green
     } else {
         # Create minimal .env
-        $defaultEnvLines = @(
-            'DATABASE_URL=file:./data/zenith.db'
-            'JWT_SECRET=zenith-local-secret-change-in-production'
-            'JWT_EXPIRY=7d'
-            'WS_CORS_ORIGIN=http://localhost:3000'
-            'PORT=4000'
-            'UPLOAD_PATH=./uploads'
-            'UPLOAD_BASE_URL=http://localhost:4000/uploads'
-            'NEXT_PUBLIC_API_URL=http://localhost:4000'
-            'NEXT_PUBLIC_WS_URL=http://localhost:4000'
-            ''
-        )
-        [System.IO.File]::WriteAllLines($envFile, $defaultEnvLines, [System.Text.Encoding]::UTF8)
+        @"
+DATABASE_URL=file:./data/zenith.db
+JWT_SECRET=zenith-local-secret-change-in-production
+JWT_EXPIRY=7d
+WS_CORS_ORIGIN=http://localhost:3000
+PORT=4000
+UPLOAD_PATH=./uploads
+UPLOAD_BASE_URL=http://localhost:4000/uploads
+NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_WS_URL=http://localhost:4000
+"@ | Out-File -FilePath $envFile -Encoding utf8
         Write-Host "  .env created with defaults" -ForegroundColor Green
     }
 } else {
