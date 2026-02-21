@@ -50,7 +50,7 @@ export class MessagesService {
       const memberUserIds = await this.prisma.member.findMany({
         where: { serverId: channel.serverId },
         select: { userId: true },
-      }).then((m) => m.map((x) => x.userId));
+      }).then((m: Array<{ userId: string }>) => m.map((x: { userId: string }) => x.userId));
       const users = await this.prisma.user.findMany({
         where: { id: { in: memberUserIds } },
         select: { id: true, username: true },
@@ -60,7 +60,7 @@ export class MessagesService {
       const seen = new Set<string>();
       while ((match = mentionRegex.exec(content)) !== null) {
         const tag = match[1];
-        const user = users.find((u) => u.username.toLowerCase() === tag.toLowerCase() || u.id === tag);
+        const user = users.find((u: (typeof users)[number]) => u.username.toLowerCase() === tag.toLowerCase() || u.id === tag);
         if (user && !seen.has(user.id)) {
           seen.add(user.id);
           await this.prisma.mention.create({
@@ -154,7 +154,7 @@ export class MessagesService {
       },
     });
     if (!msg || msg.deletedAt) throw new NotFoundException('Message not found');
-    if (msg.channel.serverId) await this.servers.ensureMember(msg.channel.serverId, userId);
+    if (msg.channel?.serverId) await this.servers.ensureMember(msg.channel.serverId, userId);
     return msg;
   }
 
@@ -162,7 +162,7 @@ export class MessagesService {
     const msg = await this.prisma.message.findUnique({ where: { id: messageId }, include: { channel: true } });
     if (!msg || msg.deletedAt) throw new NotFoundException('Message not found');
     if (msg.authorId !== userId) {
-      if (msg.channel.serverId) await this.roles.ensureCan(msg.channel.serverId, userId, 'MANAGE_MESSAGES');
+      if (msg.channel?.serverId) await this.roles.ensureCan(msg.channel.serverId, userId, 'MANAGE_MESSAGES');
       else throw new ForbiddenException('Cannot edit this message');
     }
     return this.prisma.message.update({
@@ -181,7 +181,7 @@ export class MessagesService {
       include: { channel: true },
     });
     if (!msg || msg.deletedAt) throw new NotFoundException('Message not found');
-    if (msg.authorId !== userId && msg.channel.serverId) {
+    if (msg.authorId !== userId && msg.channel?.serverId) {
       await this.roles.ensureCan(msg.channel.serverId, userId, 'MANAGE_MESSAGES');
     }
     await this.prisma.message.update({
