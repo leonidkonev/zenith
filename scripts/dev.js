@@ -7,19 +7,34 @@ const isWindows = process.platform === 'win32';
 const runner = isWindows ? 'npm.cmd' : 'npm';
 const children = [];
 let shuttingDown = false;
+const requiredEnv = {
+  DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/data/zenith.db',
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
+  NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4000',
+};
+
+console.log('[dev] API URL:', requiredEnv.NEXT_PUBLIC_API_URL);
+console.log('[dev] WS URL:', requiredEnv.NEXT_PUBLIC_WS_URL);
+console.log('[dev] DATABASE_URL:', requiredEnv.DATABASE_URL);
 
 function start(cwd, args) {
   const child = spawn(runner, args, {
     cwd,
     stdio: 'inherit',
     shell: true,
-    env: process.env,
+    env: { ...process.env, ...requiredEnv },
   });
 
   child.on('exit', (code) => {
     if (shuttingDown) return;
     const label = cwd.includes(path.sep + 'api') ? 'api' : 'web';
-    console.error(`[dev] ${label} exited with code ${code ?? 0}. Other process kept running.`);
+    const exitCode = code ?? 0;
+    console.error(`[dev] ${label} exited with code ${exitCode}. Stopping all services.`);
+    shuttingDown = true;
+    for (const c of children) {
+      if (c !== child && !c.killed) c.kill('SIGTERM');
+    }
+    process.exit(exitCode);
   });
 
   children.push(child);

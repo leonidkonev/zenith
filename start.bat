@@ -12,6 +12,8 @@ echo  ========================
 echo.
 
 set "DATABASE_URL=file:./prisma/data/zenith.db"
+set "NEXT_PUBLIC_API_URL=http://localhost:4000"
+set "NEXT_PUBLIC_WS_URL=http://localhost:4000"
 if not exist "apps\api\prisma\data" mkdir "apps\api\prisma\data"
 echo Using DATABASE_URL=%DATABASE_URL%
 echo NOTE: http://localhost:4000 is API only. Open http://localhost:3000 for the UI.
@@ -32,9 +34,11 @@ if %ERRORLEVEL% neq 0 (
 
 set "HAS_NODE_MODULES=0"
 if exist "node_modules\.modules.yaml" set "HAS_NODE_MODULES=1"
+set "HAS_PRISMA_CLIENT=0"
+if exist "node_modules\.prisma\client\default.js" set "HAS_PRISMA_CLIENT=1"
 
 if "%FORCE_SETUP%"=="1" goto RUN_SETUP
-if "%HAS_NODE_MODULES%"=="1" if exist "apps\api\prisma\data\zenith.db" goto SKIP_SETUP
+if "%HAS_NODE_MODULES%"=="1" if "%HAS_PRISMA_CLIENT%"=="1" if exist "apps\api\prisma\data\zenith.db" goto SKIP_SETUP
 
 :RUN_SETUP
 echo [1/4] Installing dependencies...
@@ -67,14 +71,18 @@ echo [fast] Use start.bat --fresh to force install and DB setup.
 :START_APP
 echo.
 echo [4/4] Starting Zenith...
-echo   API will start in a separate window on http://localhost:4000
-echo   Web will start in this window on http://localhost:3000
+echo   API + Web start together in this window
+echo   Web: http://localhost:3000
+echo   API: http://localhost:4000
 echo   If 3000 is busy, Next.js will print another local port (3001/3002...).
 echo.
 
-start "Zenith API" "%ComSpec%" /k "cd /d \"%ROOT_DIR%\" && set \"DATABASE_URL=%DATABASE_URL%\" && pnpm --filter api dev"
+call pnpm run dev
 if %ERRORLEVEL% neq 0 (
-  echo Failed to open API terminal window.
+  echo.
+  echo Startup failed because one service exited early.
+  echo Scroll up for the first error (API or Web).
+  pause
+  exit /b 1
 )
-call pnpm --filter web dev
 pause
