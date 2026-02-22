@@ -22,6 +22,16 @@ type Channel = {
   serverId: string | null;
 };
 
+type ServerMember = {
+  id: string;
+  user: { id: string; username: string; displayName: string | null; status: string };
+};
+
+type ServerDetails = {
+  id: string;
+  members?: ServerMember[];
+};
+
 export default function ChannelPage() {
   const params = useParams();
   const channelId = params.channelId as string;
@@ -32,6 +42,7 @@ export default function ChannelPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
+  const [members, setMembers] = useState<ServerMember[]>([]);
   const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -39,7 +50,16 @@ export default function ChannelPage() {
   useEffect(() => {
     if (!channelId) return;
     api<Channel>(`/channels/${channelId}`)
-      .then(setChannel)
+      .then((ch) => {
+        setChannel(ch);
+        if (ch.serverId) {
+          api<ServerDetails>(`/servers/${ch.serverId}`)
+            .then((s) => setMembers(s.members ?? []))
+            .catch(() => setMembers([]));
+        } else {
+          setMembers([]);
+        }
+      })
       .catch(() => setChannel(null));
   }, [channelId]);
 
@@ -146,7 +166,8 @@ export default function ChannelPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-space-950/50">
+    <div className="flex-1 flex min-h-0 bg-space-950/50">
+      <div className="flex-1 flex flex-col min-h-0">
       <header className="h-12 px-4 flex items-center border-b border-white/5 flex-shrink-0 bg-space-900/50">
         <span className="text-gray-500 mr-2">#</span>
         <h1 className="font-semibold text-gray-100">{channel.name}</h1>
@@ -225,6 +246,20 @@ export default function ChannelPage() {
         </div>
         <p className="text-xs text-gray-500 mt-1">Press Enter to send, Shift+Enter for new line.</p>
       </form>
+      </div>
+      {channel.serverId ? (
+        <aside className="w-56 border-l border-white/5 bg-space-900/40 p-3 overflow-y-auto hidden lg:block">
+          <h3 className="text-xs uppercase text-gray-400 mb-2">Members ({members.length})</h3>
+          <div className="space-y-1">
+            {members.map((m) => (
+              <Link key={m.id} href={`/app/user/${m.user.id}`} className="block px-2 py-1 rounded hover:bg-white/5">
+                <p className="text-sm text-gray-200 truncate">{m.user.displayName || m.user.username}</p>
+                <p className="text-[11px] text-gray-500">{m.user.status}</p>
+              </Link>
+            ))}
+          </div>
+        </aside>
+      ) : null}
     </div>
   );
 }

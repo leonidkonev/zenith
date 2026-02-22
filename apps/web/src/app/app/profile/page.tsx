@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { api, getToken } from '@/lib/api';
 
 type Me = {
   id: string;
@@ -47,6 +47,32 @@ export default function ProfilePage() {
     }
   }
 
+  async function uploadAvatar(file: File) {
+    const token = getToken();
+    if (!token) return;
+    const form = new FormData();
+    form.append('file', file);
+    setMessage(null);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Upload failed' }));
+        throw new Error(err.message || 'Upload failed');
+      }
+      const uploaded = await res.json() as { url?: string };
+      if (uploaded.url) {
+        setAvatarUrl(uploaded.url);
+        setMessage('Avatar uploaded. Click Save profile to apply.');
+      }
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Upload failed');
+    }
+  }
+
   return (
     <div className="p-6 max-w-2xl">
       <h1 className="text-2xl font-semibold mb-4">My profile</h1>
@@ -58,6 +84,16 @@ export default function ProfilePage() {
           <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" className="w-full px-3 py-2 rounded bg-space-900 border border-white/10" />
           <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} placeholder="Bio" className="w-full px-3 py-2 rounded bg-space-900 border border-white/10 h-24" />
           <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="Avatar URL (optional)" className="w-full px-3 py-2 rounded bg-space-900 border border-white/10" />
+          <label className="text-sm text-gray-400">Or upload avatar image:</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) uploadAvatar(f);
+            }}
+            className="w-full text-sm text-gray-300"
+          />
           <button onClick={save} disabled={saving} className="px-4 py-2 rounded bg-space-300 text-white disabled:opacity-50">{saving ? 'Saving...' : 'Save profile'}</button>
           {message ? <p className="text-sm text-gray-300">{message}</p> : null}
         </div>

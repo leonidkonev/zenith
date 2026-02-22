@@ -70,6 +70,12 @@ export class ServersService {
             channels: { orderBy: { position: 'asc' } },
             roles: { orderBy: { position: 'desc' } },
             owner: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+            members: {
+              include: {
+                user: { select: { id: true, username: true, displayName: true, avatarUrl: true, status: true } },
+              },
+              orderBy: { joinedAt: 'asc' },
+            },
           },
         },
       },
