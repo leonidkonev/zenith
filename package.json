@@ -2,7 +2,7 @@
   "name": "zenith",
   "private": true,
   "scripts": {
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "node scripts/dev.js",
     "dev:api": "npm run dev --workspace api",
     "dev:web": "npm run dev --workspace web",
     "build": "npm run build --workspaces --if-present",

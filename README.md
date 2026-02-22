@@ -27,6 +27,9 @@ The launcher will:
 > If port `3000` is already in use, Next.js will automatically switch to `3001`/`3002` and print the exact URL in the terminal.
 
 > `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
+> If port `3000` is already in use, Next.js will automatically switch to `3001`/`3002` and print the exact URL in the terminal.
+
+> `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
 
 > **Note:** On first run, the launcher downloads Node.js (~50MB) which may take a minute. Subsequent runs are instant.
 
@@ -38,6 +41,7 @@ If you prefer to run manually:
 - **Batch:** `start.bat` (requires Node.js and pnpm installed)
   - Fast path: `start.bat` now skips install/db setup if dependencies + DB already exist.
   - Force full setup: `start.bat --fresh`
+  - It opens API in a second terminal window and keeps Web in the current one.
 
 ### Building a single .exe
 
