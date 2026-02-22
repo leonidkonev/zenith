@@ -12,11 +12,11 @@ export class ThreadsService {
 
   async create(channelId: string, rootMessageId: string, userId: string, dto: CreateThreadDto) {
     await this.channels.findOne(channelId, userId);
-    const root = await this.prisma.message.findUnique({
+    const root = await this.prisma.message.findFirst({
       where: { id: rootMessageId, channelId, deletedAt: null },
     });
     if (!root) throw new NotFoundException('Message not found');
-    const existing = await this.prisma.thread.findUnique({
+    const existing = await this.prisma.thread.findFirst({
       where: { rootMessageId },
     });
     if (existing) throw new ForbiddenException('Thread already exists for this message');
