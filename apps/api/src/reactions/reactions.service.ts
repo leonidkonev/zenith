@@ -43,6 +43,6 @@ export class ReactionsService {
       where: { messageId },
       _count: { emoji: true },
     });
-    return reactions.map((r) => ({ emoji: r.emoji, count: r._count.emoji }));
+    return reactions.map((r: (typeof reactions)[number]) => ({ emoji: r.emoji, count: r._count.emoji }));
   }
 }

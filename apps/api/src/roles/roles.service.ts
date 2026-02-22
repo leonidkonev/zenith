@@ -33,7 +33,7 @@ export class RolesService {
         where: {
           channelId,
           OR: [
-            { roleId: { in: member.roles.map((r) => r.roleId) } },
+            { roleId: { in: member.roles.map((r: (typeof member.roles)[number]) => r.roleId) } },
             { userId },
           ],
         },
@@ -52,6 +52,16 @@ export class RolesService {
   async ensureCan(serverId: string, userId: string, permission: keyof typeof PERMISSIONS, channelId?: string) {
     const perms = await this.resolveMemberPermissions(serverId, userId, channelId);
     if (!hasPermission(perms, permission)) throw new ForbiddenException('Missing permission: ' + permission);
+  }
+
+
+  async canManageRoles(serverId: string, userId: string) {
+    try {
+      await this.ensureCan(serverId, userId, 'MANAGE_ROLES');
+      return { canManageRoles: true };
+    } catch {
+      return { canManageRoles: false };
+    }
   }
 
   async create(serverId: string, userId: string, dto: CreateRoleDto) {

@@ -24,6 +24,11 @@ export class RolesController {
     return this.roles.findAll(serverId, user.id);
   }
 
+  @Get('me/can-manage')
+  canManage(@Param('serverId') serverId: string, @CurrentUser() user: { id: string }) {
+    return this.roles.canManageRoles(serverId, user.id);
+  }
+
   @Patch(':roleId')
   update(
     @Param('serverId') serverId: string,

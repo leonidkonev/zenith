@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,18 +12,26 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    const username = dto.username.trim();
+    if (!/^[A-Za-z0-9_]{2,32}$/.test(username)) {
+      throw new BadRequestException('Username must be 2-32 chars: letters, numbers, underscore');
+    }
+    if (!/^(?=.*[A-Za-z])(?=.*\d).{8,72}$/.test(dto.password)) {
+      throw new BadRequestException('Password must be 8-72 chars and include letters and numbers');
+    }
+    const normalizedEmail = dto.email.toLowerCase().trim();
     const existing = await this.prisma.user.findFirst({
-      where: { OR: [{ email: dto.email }, { username: dto.username }] },
+      where: { OR: [{ email: normalizedEmail }, { username }] },
     });
     if (existing) {
-      if (existing.email === dto.email) throw new ConflictException('Email already registered');
+      if (existing.email === normalizedEmail) throw new ConflictException('Email already registered');
       throw new ConflictException('Username already taken');
     }
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email,
-        username: dto.username,
+        email: normalizedEmail,
+        username,
         passwordHash,
       },
       select: { id: true, email: true, username: true, displayName: true, avatarUrl: true, status: true, createdAt: true },
@@ -33,7 +41,8 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid email or password');
     }
