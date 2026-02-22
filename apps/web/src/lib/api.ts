@@ -15,6 +15,13 @@ export function clearToken() {
   localStorage.removeItem('zenith_token');
 }
 
+export function resolveMediaUrl(url?: string | null): string {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  if (!url.startsWith('/')) return `${API_URL}/${url}`;
+  return `${API_URL}${url}`;
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {

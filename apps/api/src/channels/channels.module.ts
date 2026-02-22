@@ -3,9 +3,10 @@ import { ChannelsController } from './channels.controller';
 import { ChannelsStandaloneController } from './channels-standalone.controller';
 import { ChannelsService } from './channels.service';
 import { RolesModule } from '../roles/roles.module';
+import { ServersModule } from '../servers/servers.module';
 
 @Module({
-  imports: [RolesModule],
+  imports: [RolesModule, ServersModule],
   controllers: [ChannelsController, ChannelsStandaloneController],
   providers: [ChannelsService],
   exports: [ChannelsService],
