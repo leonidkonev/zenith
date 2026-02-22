@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -16,5 +16,15 @@ export class UsersController {
   @Patch('me')
   updateMe(@CurrentUser() user: { id: string }, @Body() body: { status?: string }) {
     return this.users.updateStatus(user.id, body.status);
+  }
+
+  @Patch('me/profile')
+  updateProfile(@CurrentUser() user: { id: string }, @Body() body: { displayName?: string; bio?: string; avatarUrl?: string }) {
+    return this.users.updateProfile(user.id, body);
+  }
+
+  @Get(':id')
+  profile(@Param('id') id: string) {
+    return this.users.getPublicProfile(id);
   }
 }

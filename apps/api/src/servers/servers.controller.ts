@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ServersService } from './servers.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -22,5 +22,14 @@ export class ServersController {
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.servers.findOne(id, user.id);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string },
+    @Body() body: { name?: string; iconUrl?: string | null },
+  ) {
+    return this.servers.update(id, user.id, body);
   }
 }

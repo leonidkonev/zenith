@@ -22,6 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const manuallySelectedServerRef = useRef<string | null>(null);
 
   const loadServers = () => {
@@ -162,6 +163,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 disabled={creating || !createName.trim()}
                 onClick={async () => {
                   setCreating(true);
+                  setCreateError(null);
                   try {
                     const s = await api<Server>('/servers', { method: 'POST', body: JSON.stringify({ name: createName.trim() }) });
                     setCreateOpen(false);
@@ -169,6 +171,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     loadServers();
                     const ch = s.channels?.find((c) => c.type === 'text');
                     if (ch) router.push(`/app/channel/${ch.id}`);
+                  } catch (e) {
+                    setCreateError(e instanceof Error ? e.message : 'Could not create server');
                   } finally {
                     setCreating(false);
                   }
@@ -178,6 +182,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Create
               </button>
             </div>
+            {createError ? <p className="text-sm text-red-400 mt-3">{createError}</p> : null}
           </div>
         </div>
       )}
@@ -186,6 +191,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="w-60 bg-space-900/80 backdrop-blur-sm flex flex-col flex-shrink-0 border-r border-white/5">
         <header className="h-12 px-4 flex items-center border-b border-white/5">
           <h2 className="font-semibold truncate text-gray-100">{currentServer?.name ?? 'Servers'}</h2>
+          {currentServer ? (
+            <Link href={`/app/server/${currentServer.id}/settings`} className="ml-auto text-xs text-gray-400 hover:text-gray-200">
+              Settings
+            </Link>
+          ) : null}
         </header>
         <nav className="flex-1 overflow-y-auto p-2">
           {channels.filter((c) => c.type === 'text').length === 0 ? (
@@ -208,6 +218,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </nav>
         <div className="p-2 border-t border-white/5">
+          <Link
+            href="/app/profile"
+            className="block w-full px-2 py-1.5 rounded-md text-gray-400 hover:bg-white/5 hover:text-gray-200 text-sm transition-colors duration-200 mb-1"
+          >
+            My profile
+          </Link>
           <button
             type="button"
             onClick={handleLogout}

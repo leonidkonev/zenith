@@ -13,6 +13,7 @@ model User {
   passwordHash String  @map("password_hash")
   username    String
   displayName String?  @map("display_name")
+  bio         String?
   avatarUrl   String?  @map("avatar_url")
   status      String   @default("offline") // online | idle | dnd | offline
   lastSeen    DateTime? @map("last_seen")

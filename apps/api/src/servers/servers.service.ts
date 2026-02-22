@@ -85,4 +85,17 @@ export class ServersService {
     if (!m) throw new ForbiddenException('Not a member of this server');
     return m;
   }
+
+  async update(serverId: string, userId: string, body: { name?: string; iconUrl?: string | null }) {
+    const server = await this.prisma.server.findUnique({ where: { id: serverId } });
+    if (!server) throw new NotFoundException('Server not found');
+    if (server.ownerId !== userId) throw new ForbiddenException('Only server owner can update settings');
+    return this.prisma.server.update({
+      where: { id: serverId },
+      data: {
+        ...(body.name !== undefined ? { name: body.name.trim().slice(0, 100) } : {}),
+        ...(body.iconUrl !== undefined ? { iconUrl: body.iconUrl || null } : {}),
+      },
+    });
+  }
 }
