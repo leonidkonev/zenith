@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
+import Link from 'next/link';
 
 type User = { id: string; username: string; displayName: string | null; avatarUrl: string | null };
 type Message = {
@@ -128,7 +129,7 @@ export default function ChannelPage() {
         method: 'POST',
         body: JSON.stringify({ content: text }),
       });
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
     } catch {
       setContent(text);
     } finally {
@@ -174,9 +175,9 @@ export default function ChannelPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="font-medium text-space-200">
+                    <Link href={`/app/user/${msg.author.id}`} className="font-medium text-space-200 hover:underline">
                       {msg.author.displayName || msg.author.username}
-                    </span>
+                    </Link>
                     <span className="text-xs text-gray-500">
                       {new Date(msg.createdAt).toLocaleString()}
                     </span>
