@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 
 type Server = { id: string; name: string; iconUrl: string | null };
-type Member = { id: string; user: { id: string; username: string; displayName: string | null } };
+type Member = { id: string; user: { id: string; username: string; displayName: string | null }; roles?: { roleId: string }[] };
 type Channel = { id: string; name: string; type: string };
 type Invite = {
   id: string;
@@ -16,7 +16,28 @@ type Invite = {
   channel: { id: string; name: string };
   inviter: { id: string; username: string };
 };
+type Role = { id: string; name: string; color: string | null; mentionable: boolean; permissions: string; position: number };
 type ServerFull = Server & { owner?: { id: string }; members?: Member[]; channels?: Channel[] };
+
+const PERMISSIONS: { key: string; bit: string; label: string }[] = [
+  { key: 'MANAGE_CHANNELS', bit: '1', label: 'Manage Channels' },
+  { key: 'SEND_MESSAGES', bit: '2', label: 'Send Messages' },
+  { key: 'READ_MESSAGES', bit: '4', label: 'Read Messages' },
+  { key: 'MANAGE_MESSAGES', bit: '8', label: 'Manage Messages' },
+  { key: 'KICK_MEMBERS', bit: '16', label: 'Kick Members' },
+  { key: 'BAN_MEMBERS', bit: '32', label: 'Ban Members' },
+  { key: 'MANAGE_ROLES', bit: '64', label: 'Manage Roles' },
+  { key: 'MANAGE_SERVER', bit: '128', label: 'Manage Server' },
+  { key: 'CREATE_INVITE', bit: '256', label: 'Create Invite' },
+  { key: 'ADD_REACTIONS', bit: '512', label: 'Add Reactions' },
+  { key: 'MENTION_EVERYONE', bit: '1024', label: 'Mention Everyone' },
+];
+
+function hasPerm(mask: string | bigint | undefined, flag: string) {
+  const v = typeof mask === 'bigint' ? mask : BigInt(mask || '0');
+  const f = BigInt(flag);
+  return (v & f) === f;
+}
 
 export default function ServerSettingsPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +45,13 @@ export default function ServerSettingsPage() {
   const [name, setName] = useState('');
   const [iconUrl, setIconUrl] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
+
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [canManageRoles, setCanManageRoles] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleColor, setNewRoleColor] = useState('#99aab5');
+  const [newRoleMentionable, setNewRoleMentionable] = useState(false);
+  const [newRolePerms, setNewRolePerms] = useState<bigint>(BigInt(0));
 
   const [invites, setInvites] = useState<Invite[]>([]);
   const [inviteChannelId, setInviteChannelId] = useState('');
@@ -51,20 +79,32 @@ export default function ServerSettingsPage() {
     try {
       const list = await api<Invite[]>(`/invites/servers/${id}`);
       setInvites(list);
-    } catch (e) {
+    } catch {
       setInvites([]);
-      setMsg(e instanceof Error ? e.message : 'Failed to load invites');
+    }
+  }
+
+  async function loadRoles() {
+    if (!id) return;
+    try {
+      const [r, perms] = await Promise.all([
+        api<Role[]>(`/servers/${id}/roles`),
+        api<{ canManageRoles: boolean }>(`/servers/${id}/roles/me/can-manage`),
+      ]);
+      setRoles(r);
+      setCanManageRoles(perms.canManageRoles);
+    } catch {
+      setRoles([]);
+      setCanManageRoles(false);
     }
   }
 
   useEffect(() => {
     loadServer();
+    loadInvites();
+    loadRoles();
     if (typeof window !== 'undefined') setOrigin(window.location.origin);
   }, [id]);
-
-  useEffect(() => {
-    if (server) loadInvites();
-  }, [server?.id]);
 
   const textChannels = useMemo(() => (server?.channels ?? []).filter((c) => c.type === 'text'), [server]);
 
@@ -105,10 +145,51 @@ export default function ServerSettingsPage() {
     setMsg('Invite link copied');
   }
 
+  async function createRole() {
+    if (!canManageRoles || !newRoleName.trim()) return;
+    try {
+      await api(`/servers/${id}/roles`, {
+        method: 'POST',
+        body: JSON.stringify({ name: newRoleName.trim(), color: newRoleColor, mentionable: newRoleMentionable, permissions: newRolePerms.toString() }),
+      });
+      setNewRoleName('');
+      setNewRolePerms(BigInt(0));
+      await loadRoles();
+      await loadServer();
+      setMsg('Role created');
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Failed to create role');
+    }
+  }
+
+  async function toggleRolePerm(role: Role, bit: string) {
+    if (!canManageRoles) return;
+    const current = BigInt(role.permissions || '0');
+    const b = BigInt(bit);
+    const next = hasPerm(current, bit) ? (current & ~b) : (current | b);
+    try {
+      await api(`/servers/${id}/roles/${role.id}`, { method: 'PATCH', body: JSON.stringify({ permissions: next.toString() }) });
+      await loadRoles();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Failed to update role');
+    }
+  }
+
+  async function toggleAssign(roleId: string, memberId: string, assigned: boolean) {
+    if (!canManageRoles) return;
+    try {
+      await api(`/servers/${id}/roles/${roleId}/members/${memberId}`, { method: assigned ? 'DELETE' : 'POST' });
+      await loadServer();
+      setMsg('Role assignments updated');
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Failed to assign role');
+    }
+  }
+
   if (!server) return <div className="p-6 text-gray-400">Server not found or no permission</div>;
 
   return (
-    <div className="p-6 max-w-5xl space-y-6">
+    <div className="p-6 max-w-6xl space-y-6">
       <h1 className="text-2xl font-semibold">Server settings</h1>
 
       <section className="glass-subtle rounded-xl border border-white/10 p-4 space-y-3">
@@ -116,6 +197,63 @@ export default function ServerSettingsPage() {
         <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 rounded bg-space-900 border border-white/10" />
         <input value={iconUrl} onChange={(e) => setIconUrl(e.target.value)} placeholder="Icon URL" className="w-full px-3 py-2 rounded bg-space-900 border border-white/10" />
         <button onClick={save} className="px-4 py-2 rounded bg-space-300 text-white">Save</button>
+      </section>
+
+      <section className="glass-subtle rounded-xl border border-white/10 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Roles</h2>
+          <span className="text-xs text-gray-400">{canManageRoles ? 'You can manage roles' : 'You cannot manage roles'}</span>
+        </div>
+
+        {canManageRoles ? (
+          <div className="grid md:grid-cols-4 gap-2 items-end">
+            <input value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} placeholder="Role name" className="px-3 py-2 rounded bg-space-900 border border-white/10" />
+            <input value={newRoleColor} onChange={(e) => setNewRoleColor(e.target.value)} type="color" className="h-10 rounded bg-space-900 border border-white/10" />
+            <label className="text-sm text-gray-300 flex items-center gap-2"><input type="checkbox" checked={newRoleMentionable} onChange={(e) => setNewRoleMentionable(e.target.checked)} /> Mentionable</label>
+            <button onClick={createRole} className="px-4 py-2 rounded bg-space-300 text-white">Create role</button>
+          </div>
+        ) : null}
+
+        {canManageRoles ? (
+          <div className="grid md:grid-cols-2 gap-2 text-xs">
+            {PERMISSIONS.map((p) => (
+              <label key={p.key} className="flex items-center gap-2 text-gray-300"><input type="checkbox" checked={hasPerm(newRolePerms, p.bit)} onChange={() => setNewRolePerms((v) => { const b = BigInt(p.bit); return hasPerm(v, p.bit) ? (v & ~b) : (v | b); })} />{p.label}</label>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="space-y-3 pt-2">
+          {roles.map((r) => (
+            <div key={r.id} className="rounded-lg border border-white/10 p-3 bg-space-900/30">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: r.color || '#99aab5' }} />
+                <span className="font-medium">{r.name}</span>
+              </div>
+              <div className="grid md:grid-cols-2 gap-2 text-xs mb-3">
+                {PERMISSIONS.map((p) => (
+                  <label key={p.key} className="flex items-center gap-2 text-gray-300">
+                    <input type="checkbox" checked={hasPerm(r.permissions, p.bit)} disabled={!canManageRoles} onChange={() => toggleRolePerm(r, p.bit)} />
+                    {p.label}
+                  </label>
+                ))}
+              </div>
+              <div className="border-t border-white/10 pt-2">
+                <p className="text-xs text-gray-400 mb-1">Assign members</p>
+                <div className="grid md:grid-cols-2 gap-1">
+                  {(server.members ?? []).map((m) => {
+                    const assigned = Boolean(m.roles?.some((mr) => mr.roleId === r.id));
+                    return (
+                      <label key={`${r.id}-${m.id}`} className="text-xs text-gray-300 flex items-center gap-2">
+                        <input type="checkbox" checked={assigned} disabled={!canManageRoles} onChange={() => toggleAssign(r.id, m.id, assigned)} />
+                        {m.user.displayName || m.user.username}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="glass-subtle rounded-xl border border-white/10 p-4 space-y-3">

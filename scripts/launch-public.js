@@ -67,6 +67,7 @@ async function main() {
 
   const env = {
     ...process.env,
+    HOST: '127.0.0.1',
     NEXT_PUBLIC_API_URL: apiTunnel.url,
     NEXT_PUBLIC_WS_URL: apiTunnel.url,
     WS_CORS_ORIGIN: webTunnel.url,
@@ -76,7 +77,8 @@ async function main() {
   console.log('\nPublic URLs:');
   console.log(`  Web: ${webTunnel.url}`);
   console.log(`  API: ${apiTunnel.url}`);
-  console.log('\nShare the Web URL above. Press Ctrl+C to stop everything.\n');
+  console.log('\nSecurity mode: API binds to 127.0.0.1 and only ngrok tunnels are exposed.\n');
+  console.log('Share the Web URL above. Press Ctrl+C to stop everything.\n');
 
   const dev = spawn(npmRunner, ['run', 'dev'], {
     cwd: rootDir,

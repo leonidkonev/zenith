@@ -50,8 +50,9 @@ async function bootstrap() {
   });
   app.use('/auth', rateLimit(20, 60_000));
   app.use(rateLimit(300, 60_000));
-  const port = process.env.PORT || 4000;
-  await app.listen(port);
-  console.log(`Zenith API listening on port ${port}`);
+  const port = Number(process.env.PORT || 4000);
+  const host = process.env.HOST || '127.0.0.1';
+  await app.listen(port, host);
+  console.log(`Zenith API listening on ${host}:${port}`);
 }
 bootstrap();
