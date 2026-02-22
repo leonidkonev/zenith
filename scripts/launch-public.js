@@ -12,12 +12,19 @@ const npxRunner = isWindows ? 'npx.cmd' : 'npx';
 const children = [];
 let shuttingDown = false;
 
+const baseEnv = {
+  ...process.env,
+  DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/data/zenith.db',
+  HOST: '127.0.0.1',
+};
+
 function run(cmd, args, opts = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
       cwd: rootDir,
       stdio: 'inherit',
       shell: isWindows,
+      env: baseEnv,
       ...opts,
     });
     child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} exited with ${code}`))));
@@ -51,20 +58,18 @@ function readNgrokTunnels() {
   });
 }
 
-async function waitForTunnel(publicPort, timeoutMs = 20000) {
+async function waitForTunnel(port, timeoutMs = 30000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
       const data = await readNgrokTunnels();
       const tunnels = Array.isArray(data?.tunnels) ? data.tunnels : [];
-      const tunnel = tunnels.find((t) => String(t?.config?.addr || '').endsWith(`:${publicPort}`) && String(t?.public_url || '').startsWith('https://'));
+      const tunnel = tunnels.find((t) => String(t?.config?.addr || '').endsWith(`:${port}`) && String(t?.public_url || '').startsWith('https://'));
       if (tunnel?.public_url) return tunnel.public_url;
-    } catch {
-      // ngrok API not ready yet
-    }
+    } catch {}
     await sleep(500);
   }
-  throw new Error(`Timed out waiting for ngrok tunnel on port ${publicPort}`);
+  throw new Error(`Timed out waiting for ngrok tunnel on port ${port}`);
 }
 
 async function startNgrokTunnel(port, label) {
@@ -85,35 +90,32 @@ async function startNgrokTunnel(port, label) {
 async function main() {
   console.log('\nZenith public launcher (ngrok)\n');
   console.log('Requires ngrok auth token once: npx ngrok config add-authtoken <token>\n');
+
   console.log('Step 1/4: Installing dependencies...');
   await run(npmRunner, ['install']);
+
   console.log('Step 2/4: Generating Prisma client...');
   await run(npmRunner, ['run', 'db:generate']);
-  console.log('Step 3/4: Ensuring DB schema...');
-  await run(npmRunner, ['run', 'db:push']).catch(() => {
-    console.warn('[warn] db:push failed; continuing.');
-  });
 
-  console.log('Step 4/4: Creating ngrok tunnels...');
-  const apiTunnel = await startNgrokTunnel(4000, 'api');
-  children.push(apiTunnel.child);
+  console.log('Step 3/4: Ensuring DB schema...');
+  await run(npmRunner, ['run', 'db:push']);
+
+  console.log('Step 4/4: Creating public tunnel (web only)...');
   const webTunnel = await startNgrokTunnel(3000, 'web');
   children.push(webTunnel.child);
 
   const env = {
-    ...process.env,
-    HOST: '127.0.0.1',
-    NEXT_PUBLIC_API_URL: apiTunnel.url,
-    NEXT_PUBLIC_WS_URL: apiTunnel.url,
+    ...baseEnv,
+    NEXT_PUBLIC_API_URL: `${webTunnel.url}/__api`,
+    NEXT_PUBLIC_WS_URL: `${webTunnel.url}`,
     WS_CORS_ORIGIN: webTunnel.url,
-    UPLOAD_BASE_URL: `${apiTunnel.url}/uploads`,
+    UPLOAD_BASE_URL: `${webTunnel.url}/__api/uploads`,
   };
 
-  console.log('\nPublic URLs:');
+  console.log('\nPublic URL:');
   console.log(`  Web: ${webTunnel.url}`);
-  console.log(`  API: ${apiTunnel.url}`);
-  console.log('\nSecurity mode: API binds to 127.0.0.1 and only ngrok tunnels are exposed.\n');
-  console.log('Zenith is now starting. Share the Web URL above. Press Ctrl+C to stop everything.\n');
+  console.log('\nSecurity mode: API remains localhost-only; only the web tunnel is public.');
+  console.log('REST API is proxied via /__api through the web server.\n');
 
   const dev = spawn(npmRunner, ['run', 'dev'], {
     cwd: rootDir,
@@ -142,5 +144,6 @@ main().catch((err) => {
   console.error('Tips:');
   console.error('  1) Ensure ngrok token is set: npx ngrok config add-authtoken <token>');
   console.error('  2) Ensure ports 3000/4000 are free');
+  console.error('  3) Ensure DATABASE_URL is set or let launcher default it');
   process.exit(1);
 });
