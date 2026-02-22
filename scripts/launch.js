@@ -98,6 +98,7 @@ UPLOAD_PATH=./uploads
 UPLOAD_BASE_URL=http://localhost:4000/uploads
 NEXT_PUBLIC_API_URL=http://localhost:4000
 NEXT_PUBLIC_WS_URL=http://localhost:4000
+HOST=127.0.0.1
 `;
       fs.writeFileSync(envFile, defaultEnv, 'utf8');
       console.log('  .env created with defaults');

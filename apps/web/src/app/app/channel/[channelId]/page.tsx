@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { api } from '@/lib/api';
+import { api, resolveMediaUrl } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
 import Link from 'next/link';
 
@@ -189,7 +189,7 @@ export default function ChannelPage() {
               <div key={msg.id} className="flex gap-3 animate-fade-in group">
                 <div className="w-10 h-10 rounded-full bg-space-600 flex-shrink-0 flex items-center justify-center text-space-200 font-semibold ring-1 ring-white/5">
                   {msg.author.avatarUrl ? (
-                    <img src={msg.author.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
+                    <img src={resolveMediaUrl(msg.author.avatarUrl)} alt="" className="w-full h-full rounded-full object-cover" />
                   ) : (
                     (msg.author.displayName || msg.author.username)?.[0]?.toUpperCase() ?? '?'
                   )}
@@ -209,7 +209,7 @@ export default function ChannelPage() {
                       {msg.attachments.map((a) => (
                         <a
                           key={a.id}
-                          href={a.url}
+                          href={resolveMediaUrl(a.url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm text-space-200 hover:underline"

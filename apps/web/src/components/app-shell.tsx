@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { api, clearToken } from '@/lib/api';
+import { api, clearToken, resolveMediaUrl } from '@/lib/api';
 import { disconnectSocket } from '@/lib/socket';
 
 type Server = {
@@ -141,7 +141,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 : 'bg-space-600 text-gray-300 hover:rounded-xl hover:bg-space-500'
             }`}
           >
-            {s.iconUrl ? <img src={s.iconUrl} alt="" className="w-full h-full rounded-xl object-cover" /> : s.name[0].toUpperCase()}
+            {s.iconUrl ? <img src={resolveMediaUrl(s.iconUrl)} alt="" className="w-full h-full rounded-xl object-cover" /> : s.name[0].toUpperCase()}
           </button>
         ))}
         <button

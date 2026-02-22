@@ -26,23 +26,6 @@ The launcher will:
 > `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
 > If port `3000` is already in use, Next.js will automatically switch to `3001`/`3002` and print the exact URL in the terminal.
 
-> `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
-> If port `3000` is already in use, Next.js will automatically switch to `3001`/`3002` and print the exact URL in the terminal.
-
-> `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
-> If port `3000` is already in use, Next.js will automatically switch to `3001`/`3002` and print the exact URL in the terminal.
-
-> `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
-> If port `3000` is already in use, Next.js will automatically switch to `3001`/`3002` and print the exact URL in the terminal.
-
-> `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
-> If port `3000` is already in use, Next.js will automatically switch to `3001`/`3002` and print the exact URL in the terminal.
-
-> `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
-> If port `3000` is already in use, Next.js will automatically switch to `3001`/`3002` and print the exact URL in the terminal.
-
-> `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
-
 > **Note:** On first run, the launcher downloads Node.js (~50MB) which may take a minute. Subsequent runs are instant.
 
 ### Alternative: Manual start
@@ -55,6 +38,18 @@ If you prefer to run manually:
   - Force full setup: `start.bat --fresh`
   - It starts API and Web together in one window.
   - If either API or Web fails, startup now stops and prints a clear failure message (instead of keeping a half-broken state).
+
+
+### Share publicly with ngrok (alpha)
+
+- Local/non-public launch (unchanged): `start.bat` or `pnpm launch`
+- Public launch with ngrok:
+  - `start-public.bat` (Windows)
+  - `pnpm run launch:public`
+- First-time setup (once on host machine):
+  - `npx ngrok config add-authtoken <YOUR_TOKEN>`
+
+The public launcher auto-configures API/WS/upload URLs for external access and prints shareable URLs.
 
 ### Building a single .exe
 

@@ -11,11 +11,13 @@ const requiredEnv = {
   DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/data/zenith.db',
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
   NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4000',
+  HOST: process.env.HOST || '127.0.0.1',
 };
 
 console.log('[dev] API URL:', requiredEnv.NEXT_PUBLIC_API_URL);
 console.log('[dev] WS URL:', requiredEnv.NEXT_PUBLIC_WS_URL);
 console.log('[dev] DATABASE_URL:', requiredEnv.DATABASE_URL);
+console.log('[dev] HOST:', requiredEnv.HOST);
 
 function start(cwd, args) {
   const child = spawn(runner, args, {

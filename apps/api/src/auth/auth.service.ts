@@ -19,17 +19,18 @@ export class AuthService {
     if (!/^(?=.*[A-Za-z])(?=.*\d).{8,72}$/.test(dto.password)) {
       throw new BadRequestException('Password must be 8-72 chars and include letters and numbers');
     }
+    const normalizedEmail = dto.email.toLowerCase().trim();
     const existing = await this.prisma.user.findFirst({
-      where: { OR: [{ email: dto.email.toLowerCase().trim() }, { username }] },
+      where: { OR: [{ email: normalizedEmail }, { username }] },
     });
     if (existing) {
-      if (existing.email === dto.email) throw new ConflictException('Email already registered');
+      if (existing.email === normalizedEmail) throw new ConflictException('Email already registered');
       throw new ConflictException('Username already taken');
     }
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email.toLowerCase().trim(),
+        email: normalizedEmail,
         username,
         passwordHash,
       },

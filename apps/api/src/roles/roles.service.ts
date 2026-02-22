@@ -54,6 +54,16 @@ export class RolesService {
     if (!hasPermission(perms, permission)) throw new ForbiddenException('Missing permission: ' + permission);
   }
 
+
+  async canManageRoles(serverId: string, userId: string) {
+    try {
+      await this.ensureCan(serverId, userId, 'MANAGE_ROLES');
+      return { canManageRoles: true };
+    } catch {
+      return { canManageRoles: false };
+    }
+  }
+
   async create(serverId: string, userId: string, dto: CreateRoleDto) {
     await this.ensureCan(serverId, userId, 'MANAGE_ROLES');
     const maxPos = await this.prisma.role.findFirst({

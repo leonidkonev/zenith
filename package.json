@@ -11,7 +11,8 @@
     "db:push": "npm run prisma:push --workspace api",
     "db:studio": "npm run prisma:studio --workspace api",
     "launch": "node scripts/launch.js",
-    "build:exe": "pkg scripts/launch.js --targets node18-win-x64 --output zenith.exe"
+    "build:exe": "pkg scripts/launch.js --targets node18-win-x64 --output zenith.exe",
+    "launch:public": "node scripts/launch-public.js"
   },
   "devDependencies": {
     "typescript": "^5.3.3"

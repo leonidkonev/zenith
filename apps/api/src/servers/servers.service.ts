@@ -73,6 +73,7 @@ export class ServersService {
             members: {
               include: {
                 user: { select: { id: true, username: true, displayName: true, avatarUrl: true, status: true } },
+                roles: { select: { roleId: true } },
               },
               orderBy: { joinedAt: 'asc' },
             },
