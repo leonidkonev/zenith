@@ -2,6 +2,7 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
+const http = require('http');
 
 const rootDir = path.resolve(__dirname, '..');
 const isWindows = process.platform === 'win32';
@@ -24,42 +25,76 @@ function run(cmd, args, opts = {}) {
   });
 }
 
-function startNgrokTunnel(port, label) {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function readNgrokTunnels() {
   return new Promise((resolve, reject) => {
-    const child = spawn(npxRunner, ['ngrok', 'http', String(port), '--log', 'stdout'], {
-      cwd: rootDir,
-      shell: isWindows,
-    });
-
-    let resolved = false;
-    child.stdout.on('data', (buf) => {
-      const text = buf.toString();
-      process.stdout.write(`[ngrok:${label}] ${text}`);
-      const match = text.match(/url=(https:\/\/[^\s]+)/);
-      if (!resolved && match?.[1]) {
-        resolved = true;
-        resolve({ child, url: match[1] });
+    const req = http.get('http://127.0.0.1:4040/api/tunnels', (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`ngrok API returned status ${res.statusCode}`));
+        res.resume();
+        return;
       }
+      let body = '';
+      res.on('data', (c) => (body += c));
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch {
+          reject(new Error('Failed to parse ngrok API response'));
+        }
+      });
     });
-    child.stderr.on('data', (buf) => process.stderr.write(`[ngrok:${label}] ${buf.toString()}`));
-
-    child.on('close', (code) => {
-      if (!resolved) reject(new Error(`ngrok ${label} exited early with code ${code}`));
-    });
-    child.on('error', reject);
+    req.on('error', reject);
   });
+}
+
+async function waitForTunnel(publicPort, timeoutMs = 20000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const data = await readNgrokTunnels();
+      const tunnels = Array.isArray(data?.tunnels) ? data.tunnels : [];
+      const tunnel = tunnels.find((t) => String(t?.config?.addr || '').endsWith(`:${publicPort}`) && String(t?.public_url || '').startsWith('https://'));
+      if (tunnel?.public_url) return tunnel.public_url;
+    } catch {
+      // ngrok API not ready yet
+    }
+    await sleep(500);
+  }
+  throw new Error(`Timed out waiting for ngrok tunnel on port ${publicPort}`);
+}
+
+async function startNgrokTunnel(port, label) {
+  console.log(`[ngrok:${label}] Starting tunnel for localhost:${port} ...`);
+  const child = spawn(npxRunner, ['ngrok', 'http', String(port), '--log', 'stdout'], {
+    cwd: rootDir,
+    shell: isWindows,
+  });
+
+  child.stdout.on('data', (buf) => process.stdout.write(`[ngrok:${label}] ${buf.toString()}`));
+  child.stderr.on('data', (buf) => process.stderr.write(`[ngrok:${label}] ${buf.toString()}`));
+
+  const url = await waitForTunnel(port, 30000);
+  console.log(`[ngrok:${label}] Ready: ${url}`);
+  return { child, url };
 }
 
 async function main() {
   console.log('\nZenith public launcher (ngrok)\n');
-  console.log('This requires ngrok auth on your machine (run once: npx ngrok config add-authtoken <token>).\n');
-
+  console.log('Requires ngrok auth token once: npx ngrok config add-authtoken <token>\n');
+  console.log('Step 1/4: Installing dependencies...');
   await run(npmRunner, ['install']);
+  console.log('Step 2/4: Generating Prisma client...');
   await run(npmRunner, ['run', 'db:generate']);
+  console.log('Step 3/4: Ensuring DB schema...');
   await run(npmRunner, ['run', 'db:push']).catch(() => {
     console.warn('[warn] db:push failed; continuing.');
   });
 
+  console.log('Step 4/4: Creating ngrok tunnels...');
   const apiTunnel = await startNgrokTunnel(4000, 'api');
   children.push(apiTunnel.child);
   const webTunnel = await startNgrokTunnel(3000, 'web');
@@ -78,7 +113,7 @@ async function main() {
   console.log(`  Web: ${webTunnel.url}`);
   console.log(`  API: ${apiTunnel.url}`);
   console.log('\nSecurity mode: API binds to 127.0.0.1 and only ngrok tunnels are exposed.\n');
-  console.log('Share the Web URL above. Press Ctrl+C to stop everything.\n');
+  console.log('Zenith is now starting. Share the Web URL above. Press Ctrl+C to stop everything.\n');
 
   const dev = spawn(npmRunner, ['run', 'dev'], {
     cwd: rootDir,
@@ -103,6 +138,9 @@ process.on('SIGINT', () => {
 });
 
 main().catch((err) => {
-  console.error(err.message);
+  console.error('\n[launch:public] Failed:', err.message);
+  console.error('Tips:');
+  console.error('  1) Ensure ngrok token is set: npx ngrok config add-authtoken <token>');
+  console.error('  2) Ensure ports 3000/4000 are free');
   process.exit(1);
 });
