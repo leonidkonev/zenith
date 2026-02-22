@@ -27,6 +27,12 @@ function rateLimit(max: number, windowMs: number) {
 }
 
 async function bootstrap() {
+  // Prevent Express JSON serialization crashes when Prisma returns bigint fields.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (BigInt.prototype as any).toJSON = function () {
+    return this.toString();
+  };
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const uploadPath = process.env.UPLOAD_PATH || join(process.cwd(), 'uploads');
   app.useStaticAssets(uploadPath, { prefix: '/uploads/' });
