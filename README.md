@@ -23,6 +23,9 @@ The launcher will:
 
 **Open http://localhost:3000** when it's ready!
 
+> `http://localhost:4000` is the API server (JSON endpoints), not the UI homepage.
+> If port `3000` is already in use, Next.js will automatically switch to `3001`/`3002` and print the exact URL in the terminal.
+
 > **Note:** On first run, the launcher downloads Node.js (~50MB) which may take a minute. Subsequent runs are instant.
 
 ### Alternative: Manual start
@@ -31,6 +34,22 @@ If you prefer to run manually:
 - **PowerShell:** `.\scripts\zenith-launcher.ps1`
 - **Node.js:** `node scripts/launch.js` or `pnpm launch`
 - **Batch:** `start.bat` (requires Node.js and pnpm installed)
+  - Fast path: `start.bat` now skips install/db setup if dependencies + DB already exist.
+  - Force full setup: `start.bat --fresh`
+  - It starts API and Web together in one window.
+  - If either API or Web fails, startup now stops and prints a clear failure message (instead of keeping a half-broken state).
+
+
+### Share publicly with ngrok (alpha)
+
+- Local/non-public launch (unchanged): `start.bat` or `pnpm launch`
+- Public launch with ngrok:
+  - `start-public.bat` (Windows)
+  - `pnpm run launch:public`
+- First-time setup (once on host machine):
+  - `npx ngrok config add-authtoken <YOUR_TOKEN>`
+
+The public launcher auto-configures API/WS/upload URLs for external access and prints shareable URLs.
 
 ### Building a single .exe
 

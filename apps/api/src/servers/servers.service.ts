@@ -54,11 +54,12 @@ export class ServersService {
           include: {
             channels: { orderBy: { position: 'asc' }, take: 10 },
             owner: { select: { id: true, username: true } },
+            members: { include: { user: { select: { id: true, status: true } } } },
           },
         },
       },
     });
-    return members.map((m) => m.server);
+    return members.map((m: (typeof members)[number]) => m.server);
   }
 
   async findOne(serverId: string, userId: string) {
@@ -70,6 +71,13 @@ export class ServersService {
             channels: { orderBy: { position: 'asc' } },
             roles: { orderBy: { position: 'desc' } },
             owner: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+            members: {
+              include: {
+                user: { select: { id: true, username: true, displayName: true, avatarUrl: true, status: true } },
+                roles: { select: { roleId: true } },
+              },
+              orderBy: { joinedAt: 'asc' },
+            },
           },
         },
       },
@@ -84,5 +92,29 @@ export class ServersService {
     });
     if (!m) throw new ForbiddenException('Not a member of this server');
     return m;
+  }
+
+  async leave(serverId: string, userId: string) {
+    const server = await this.prisma.server.findUnique({ where: { id: serverId } });
+    if (!server) throw new NotFoundException('Server not found');
+    if (server.ownerId === userId) throw new ForbiddenException('Server owner cannot leave. Transfer ownership or delete server.');
+    const member = await this.prisma.member.findUnique({ where: { userId_serverId: { userId, serverId } } });
+    if (!member) throw new NotFoundException('Membership not found');
+    await this.prisma.memberRole.deleteMany({ where: { memberId: member.id } });
+    await this.prisma.member.delete({ where: { id: member.id } });
+    return { ok: true };
+  }
+
+  async update(serverId: string, userId: string, body: { name?: string; iconUrl?: string | null }) {
+    const server = await this.prisma.server.findUnique({ where: { id: serverId } });
+    if (!server) throw new NotFoundException('Server not found');
+    if (server.ownerId !== userId) throw new ForbiddenException('Only server owner can update settings');
+    return this.prisma.server.update({
+      where: { id: serverId },
+      data: {
+        ...(body.name !== undefined ? { name: body.name.trim().slice(0, 100) } : {}),
+        ...(body.iconUrl !== undefined ? { iconUrl: body.iconUrl || null } : {}),
+      },
+    });
   }
 }

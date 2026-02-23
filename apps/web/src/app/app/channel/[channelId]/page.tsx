@@ -2,8 +2,9 @@
 
 import { useParams } from 'next/navigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { api } from '@/lib/api';
+import { api, resolveMediaUrl } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
+import Link from 'next/link';
 
 type User = { id: string; username: string; displayName: string | null; avatarUrl: string | null };
 type Message = {
@@ -21,6 +22,19 @@ type Channel = {
   serverId: string | null;
 };
 
+type ServerRole = { id: string; name: string; color: string | null; position: number };
+type ServerMember = {
+  id: string;
+  user: { id: string; username: string; displayName: string | null; status: string };
+  roles?: { roleId: string }[];
+};
+
+type ServerDetails = {
+  id: string;
+  members?: ServerMember[];
+  roles?: ServerRole[];
+};
+
 export default function ChannelPage() {
   const params = useParams();
   const channelId = params.channelId as string;
@@ -31,6 +45,8 @@ export default function ChannelPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
+  const [members, setMembers] = useState<ServerMember[]>([]);
+  const [roles, setRoles] = useState<ServerRole[]>([]);
   const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -38,7 +54,16 @@ export default function ChannelPage() {
   useEffect(() => {
     if (!channelId) return;
     api<Channel>(`/channels/${channelId}`)
-      .then(setChannel)
+      .then((ch) => {
+        setChannel(ch);
+        if (ch.serverId) {
+          api<ServerDetails>(`/servers/${ch.serverId}`)
+            .then((s) => { setMembers(s.members ?? []); setRoles((s.roles ?? []).sort((a,b)=>b.position-a.position)); })
+            .catch(() => { setMembers([]); setRoles([]); });
+        } else {
+          setMembers([]);
+        }
+      })
       .catch(() => setChannel(null));
   }, [channelId]);
 
@@ -63,6 +88,22 @@ export default function ChannelPage() {
   }, [channelId, loadMessages]);
 
   useEffect(() => {
+    if (!channelId) return;
+    const t = setInterval(() => {
+      api<{ messages: Message[]; nextCursor: string | null }>(`/channels/${channelId}/messages?limit=50`)
+        .then((data) => {
+          setMessages((prev) => {
+            const map = new Map(prev.map((m) => [m.id, m] as const));
+            for (const m of data.messages) map.set(m.id, m);
+            return Array.from(map.values()).sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+          });
+        })
+        .catch(() => {});
+    }, 3000);
+    return () => clearInterval(t);
+  }, [channelId]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -79,6 +120,10 @@ export default function ChannelPage() {
     socket?.on('new_message', (payload: Message & { channelId?: string }) => {
       if (payload.channelId && payload.channelId !== channelId) return;
       onMessage(payload);
+      if (payload.author?.id !== undefined) {
+        const muted = JSON.parse(localStorage.getItem('zenith_muted_servers') || '[]') as string[];
+        if (!(channel?.serverId && muted.includes(channel.serverId))) playPing();
+      }
     });
     socket?.on('typing', (payload: { channelId: string; userId: string }) => {
       if (payload.channelId !== channelId) return;
@@ -117,6 +162,22 @@ export default function ChannelPage() {
     s?.emit('typing_stop', { channelId });
   }
 
+
+  function playPing() {
+    try {
+      const ctx = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.value = 0.03;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+    } catch {}
+  }
+
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
     const text = content.trim();
@@ -128,13 +189,31 @@ export default function ChannelPage() {
         method: 'POST',
         body: JSON.stringify({ content: text }),
       });
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
     } catch {
       setContent(text);
     } finally {
       setSending(false);
     }
   }
+
+
+  const roleMap = new Map(roles.map((r) => [r.id, r] as const));
+  const grouped = new Map<string, { role: ServerRole | null; members: ServerMember[] }>();
+  for (const m of members) {
+    const topRole = (m.roles ?? [])
+      .map((mr) => roleMap.get(mr.roleId))
+      .filter((r): r is ServerRole => Boolean(r))
+      .sort((a, b) => b.position - a.position)[0] ?? null;
+    const key = topRole?.id ?? 'no-role';
+    if (!grouped.has(key)) grouped.set(key, { role: topRole, members: [] });
+    grouped.get(key)?.members.push(m);
+  }
+  const groupedEntries = Array.from(grouped.values()).sort((a, b) => {
+    const pa = a.role?.position ?? -1;
+    const pb = b.role?.position ?? -1;
+    return pb - pa;
+  });
 
   if (!channel) {
     return (
@@ -145,7 +224,8 @@ export default function ChannelPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-space-950/50">
+    <div className="flex-1 flex min-h-0 bg-space-950/50">
+      <div className="flex-1 flex flex-col min-h-0">
       <header className="h-12 px-4 flex items-center border-b border-white/5 flex-shrink-0 bg-space-900/50">
         <span className="text-gray-500 mr-2">#</span>
         <h1 className="font-semibold text-gray-100">{channel.name}</h1>
@@ -163,43 +243,51 @@ export default function ChannelPage() {
                 Someone is typing…
               </p>
             )}
-            {messages.map((msg) => (
-              <div key={msg.id} className="flex gap-3 animate-fade-in group">
-                <div className="w-10 h-10 rounded-full bg-space-600 flex-shrink-0 flex items-center justify-center text-space-200 font-semibold ring-1 ring-white/5">
-                  {msg.author.avatarUrl ? (
-                    <img src={msg.author.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    (msg.author.displayName || msg.author.username)?.[0]?.toUpperCase() ?? '?'
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-medium text-space-200">
-                      {msg.author.displayName || msg.author.username}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {new Date(msg.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-gray-200 whitespace-pre-wrap break-words">{msg.content}</p>
-                  {msg.attachments?.length ? (
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      {msg.attachments.map((a) => (
-                        <a
-                          key={a.id}
-                          href={a.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-space-200 hover:underline"
-                        >
-                          {a.filename}
-                        </a>
-                      ))}
+            {messages.map((msg, idx) => {
+              const prev = idx > 0 ? messages[idx - 1] : null;
+              const compact = Boolean(prev && prev.author.id === msg.author.id && (new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime()) < 5 * 60 * 1000);
+              return (
+                <div key={msg.id} className={`flex gap-3 animate-fade-in group ${compact ? 'mt-1' : ''}`}>
+                  {!compact ? (
+                    <div className="w-10 h-10 rounded-full bg-space-600 flex-shrink-0 flex items-center justify-center text-space-200 font-semibold ring-1 ring-white/5">
+                      {msg.author.avatarUrl ? (
+                        <img src={resolveMediaUrl(msg.author.avatarUrl)} alt="" className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        (msg.author.displayName || msg.author.username)?.[0]?.toUpperCase() ?? '?'
+                      )}
                     </div>
-                  ) : null}
+                  ) : <div className="w-10 flex-shrink-0" />}
+                  <div className="min-w-0 flex-1">
+                    {!compact ? (
+                      <div className="flex items-baseline gap-2">
+                        <Link href={`/app/user/${msg.author.id}`} className="font-medium text-space-200 hover:underline">
+                          {msg.author.displayName || msg.author.username}
+                        </Link>
+                        <span className="text-xs text-gray-500">
+                          {new Date(msg.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    ) : null}
+                    <p className="text-gray-200 whitespace-pre-wrap break-words">{msg.content}</p>
+                    {msg.attachments?.length ? (
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {msg.attachments.map((a) => (
+                          <a
+                            key={a.id}
+                            href={resolveMediaUrl(a.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-space-200 hover:underline"
+                          >
+                            {a.filename}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </>
         )}
         <div ref={messagesEndRef} />
@@ -224,6 +312,40 @@ export default function ChannelPage() {
         </div>
         <p className="text-xs text-gray-500 mt-1">Press Enter to send, Shift+Enter for new line.</p>
       </form>
+      </div>
+      {channel.serverId ? (
+        <aside className="w-64 border-l border-white/5 bg-space-900/40 p-3 overflow-y-auto hidden lg:block">
+          <h3 className="text-xs uppercase text-gray-400 mb-2">Members ({members.length})</h3>
+          <div className="space-y-3">
+            {groupedEntries.map((g) => (
+              <div key={g.role?.id || 'no-role'}>
+                <p className="text-[11px] uppercase tracking-wide mb-1" style={{ color: g.role?.color || '#9ca3af' }}>{g.role?.name || 'Members'} ({g.members.length})</p>
+                <div className="space-y-1">
+                  {g.members.map((m) => (
+                    <div key={m.id} className="flex items-center gap-1">
+                      <Link href={`/app/user/${m.user.id}`} className="block flex-1 px-2 py-1 rounded hover:bg-white/5">
+                        <p className="text-sm text-gray-200 truncate">{m.user.displayName || m.user.username}</p>
+                        <p className="text-[11px] text-gray-500">{m.user.status}</p>
+                      </Link>
+                      <button
+                        type="button"
+                        className="text-[10px] px-1.5 py-1 rounded bg-space-700 hover:bg-space-600"
+                        title="DM user"
+                        onClick={async () => {
+                          try {
+                            const dm = await api<{ id: string }>(`/dm-channels`, { method: 'POST', body: JSON.stringify({ userId: m.user.id }) });
+                            window.location.href = `/app/dm/${dm.id}`;
+                          } catch {}
+                        }}
+                      >DM</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+      ) : null}
     </div>
   );
 }
