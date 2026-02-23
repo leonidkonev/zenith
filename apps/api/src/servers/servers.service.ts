@@ -54,6 +54,7 @@ export class ServersService {
           include: {
             channels: { orderBy: { position: 'asc' }, take: 10 },
             owner: { select: { id: true, username: true } },
+            members: { include: { user: { select: { id: true, status: true } } } },
           },
         },
       },
@@ -91,6 +92,17 @@ export class ServersService {
     });
     if (!m) throw new ForbiddenException('Not a member of this server');
     return m;
+  }
+
+  async leave(serverId: string, userId: string) {
+    const server = await this.prisma.server.findUnique({ where: { id: serverId } });
+    if (!server) throw new NotFoundException('Server not found');
+    if (server.ownerId === userId) throw new ForbiddenException('Server owner cannot leave. Transfer ownership or delete server.');
+    const member = await this.prisma.member.findUnique({ where: { userId_serverId: { userId, serverId } } });
+    if (!member) throw new NotFoundException('Membership not found');
+    await this.prisma.memberRole.deleteMany({ where: { memberId: member.id } });
+    await this.prisma.member.delete({ where: { id: member.id } });
+    return { ok: true };
   }
 
   async update(serverId: string, userId: string, body: { name?: string; iconUrl?: string | null }) {

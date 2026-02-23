@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ServersService } from './servers.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -31,5 +31,10 @@ export class ServersController {
     @Body() body: { name?: string; iconUrl?: string | null },
   ) {
     return this.servers.update(id, user.id, body);
+  }
+
+  @Delete(':id/members/me')
+  leave(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    return this.servers.leave(id, user.id);
   }
 }
